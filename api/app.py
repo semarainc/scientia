@@ -1,4 +1,5 @@
 import io
+import os
 import random
 import time
 from pathlib import Path
@@ -21,28 +22,42 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-MODEL_PATH = Path(__file__).parent / "models" / "pneumonia_cnn.pth"
 CLASSES = ["NORMAL", "PNEUMONIA"]
 
 # ---------- model loader ----------
-model = None
+predictor = None
 
 def load_model():
-    global model
-    if not MODEL_PATH.exists():
-        return False
+    """Load PneumoniaPredictor from models/predict.py"""
+    global predictor
     try:
-        import torch
-        import torchvision.models as tv_models
-
-        net = tv_models.resnet18(weights=None)
-        net.fc = torch.nn.Linear(net.fc.in_features, 2)
-        net.load_state_dict(torch.load(MODEL_PATH, map_location="cpu"))
-        net.eval()
-        model = net
+        from models.predict import get_predictor
+        
+        # Get checkpoint path from environment or use default
+        checkpoint_dir = Path(os.getenv("CHECKPOINT_DIR", "models/checkpoints"))
+        checkpoint_path = checkpoint_dir / "inference_model.pth"
+        
+        # Fallback to best_model.pth if inference_model.pth doesn't exist
+        if not checkpoint_path.exists():
+            checkpoint_path = checkpoint_dir / "best_model.pth"
+        
+        if not checkpoint_path.exists():
+            print(f"[WARNING] Model checkpoint tidak ditemukan di: {checkpoint_path}")
+            return False
+        
+        # Initialize predictor
+        predictor = get_predictor(
+            model_path=str(checkpoint_path),
+            device=os.getenv("DEVICE", "cpu"),
+            threshold=float(os.getenv("THRESHOLD", "0.5"))
+        )
+        print(f"[INFO] Model berhasil dimuat dari: {checkpoint_path}")
         return True
+        
     except Exception as e:
         print(f"[WARNING] Gagal load model: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 load_model()
@@ -63,29 +78,35 @@ def predict_dummy(image: Image.Image) -> dict:
     }
 
 def predict_real(image: Image.Image) -> dict:
-    import torch
-    import torchvision.transforms as T
-
-    transform = T.Compose([
-        T.Resize((224, 224)),
-        T.Grayscale(num_output_channels=3),
-        T.ToTensor(),
-        T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-    ])
-
-    tensor = transform(image).unsqueeze(0)
-    with torch.no_grad():
-        logits = model(tensor)
-        probs = torch.softmax(logits, dim=1).squeeze().tolist()
-
-    label_idx = int(torch.argmax(torch.tensor(probs)).item())
+    """Real inference using PneumoniaPredictor"""
+    if predictor is None:
+        raise RuntimeError("Model predictor tidak tersedia")
+    
+    # Predict menggunakan predictor yang sudah di-load
+    result = predictor.predict(image)
+    
+    # result dari predictor.predict() memiliki format:
+    # {
+    #     "label": "NORMAL" atau "PNEUMONIA",
+    #     "label_index": 0 atau 1,
+    #     "probability": float (P(PNEUMONIA)),
+    #     "confidence": float,
+    #     "threshold": float,
+    #     "inference_ms": float
+    # }
+    
+    # Konversi ke format yang diharapkan API
+    prob_pneumonia = result["probability"]
+    prob_normal = 1.0 - prob_pneumonia
+    
     return {
-        "label": CLASSES[label_idx],
-        "confidence": round(max(probs), 4),
+        "label": result["label"],
+        "confidence": round(result["confidence"], 4),
         "probabilities": {
-            "NORMAL": round(probs[0], 4),
-            "PNEUMONIA": round(probs[1], 4),
+            "NORMAL": round(prob_normal, 4),
+            "PNEUMONIA": round(prob_pneumonia, 4),
         },
+        "inference_time_ms": result.get("inference_ms", 0),
     }
 
 # ---------- endpoints ----------
@@ -97,8 +118,8 @@ def root():
 def health():
     return {
         "status": "ok",
-        "model_loaded": model is not None,
-        "mode": "real" if model is not None else "dummy",
+        "model_loaded": predictor is not None,
+        "mode": "real" if predictor is not None else "dummy",
     }
 
 @app.post("/predict")
@@ -115,13 +136,13 @@ async def predict(file: UploadFile = File(...)):
     except Exception:
         raise HTTPException(status_code=400, detail="File gambar tidak valid atau rusak.")
 
-    if model is not None:
+    if predictor is not None:
         result = predict_real(image)
     else:
         result = predict_dummy(image)
 
     return JSONResponse(content={
         "filename": file.filename,
-        "mode": "real" if model is not None else "dummy",
+        "mode": "real" if predictor is not None else "dummy",
         **result,
     })

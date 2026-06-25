@@ -1,0 +1,30 @@
+.DS_Store
+*.pyc
+/api/__pycache__
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments / local installers
+.venv/
+venv/
+env/
+ENV/
+api/.venv/
+api/venv/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE / editor
+.vscode/
+.idea/
+
+# Test / tooling cache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
