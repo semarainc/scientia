@@ -10,10 +10,13 @@ const previewName    = document.getElementById("previewName");
 const changeBtn      = document.getElementById("changeBtn");
 const analyzeBtn     = document.getElementById("analyzeBtn");
 const uploadSection  = document.getElementById("uploadSection");
+const analysisLayout = document.getElementById("analysisLayout");
 const resultCard     = document.getElementById("resultCard");
 const loadingOverlay = document.getElementById("loadingOverlay");
 const errorToast     = document.getElementById("errorToast");
 const errorMsg       = document.getElementById("errorMsg");
+const uploadHeading  = document.getElementById("uploadHeading");
+const uploadDesc     = document.getElementById("uploadDesc");
 
 const modeBadge      = document.getElementById("modeBadge");
 const verdictIconWrap= document.getElementById("verdictIconWrap");
@@ -76,6 +79,11 @@ function handleFile(file) {
   dropZone.hidden = true;
   preview.hidden = false;
   analyzeBtn.disabled = false;
+  analyzeBtn.hidden = false;
+  resultCard.hidden = true;
+  analysisLayout.classList.remove("has-result");
+  uploadHeading.textContent = "Upload Citra X-Ray Dada";
+  uploadDesc.textContent = "Format yang didukung: JPEG, PNG · Maks. 10 MB";
 }
 
 changeBtn.addEventListener("click", resetUpload);
@@ -87,6 +95,11 @@ function resetUpload() {
   dropZone.hidden = false;
   preview.hidden = true;
   analyzeBtn.disabled = true;
+  analyzeBtn.hidden = false;
+  resultCard.hidden = true;
+  analysisLayout.classList.remove("has-result");
+  uploadHeading.textContent = "Upload Citra X-Ray Dada";
+  uploadDesc.textContent = "Format yang didukung: JPEG, PNG · Maks. 10 MB";
 }
 
 // ---- Analyze ----
@@ -159,15 +172,17 @@ function showResult(data) {
   pctNormal.textContent    = `${pN}%`;
   pctPneumonia.textContent = `${pP}%`;
 
-  uploadSection.hidden = true;
+  uploadSection.hidden = false;
+  analyzeBtn.hidden = true;
+  analysisLayout.classList.add("has-result");
+  uploadHeading.textContent = "Citra yang Dianalisis";
+  uploadDesc.textContent = "Gambar tetap ditampilkan sebagai konteks hasil model.";
   resultCard.hidden    = false;
 }
 
 // ---- Reset ----
 resetBtn.addEventListener("click", () => {
-  resultCard.hidden    = false;
   uploadSection.hidden = false;
-  resultCard.hidden    = true;
   resetUpload();
 });
 

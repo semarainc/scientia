@@ -172,7 +172,10 @@ def load_checkpoint(
     ckpt = torch.load(str(path), map_location=device)
 
     if model is None:
-        model = build_model(variant=ckpt.get("densenet_variant", config.DENSENET_VARIANT))
+        model = build_model(
+            variant=ckpt.get("densenet_variant", config.DENSENET_VARIANT),
+            pretrained=False,
+        )
 
     model.load_state_dict(ckpt["model_state_dict"])
     model.to(device)
@@ -196,7 +199,10 @@ def export_model_for_inference(
         model_state_dict, densenet_variant, class_names
     """
     ckpt = torch.load(str(checkpoint_path), map_location=device)
-    model = build_model(variant=ckpt.get("densenet_variant", config.DENSENET_VARIANT))
+    model = build_model(
+        variant=ckpt.get("densenet_variant", config.DENSENET_VARIANT),
+        pretrained=False,
+    )
     model.load_state_dict(ckpt["model_state_dict"])
     model.eval()
 

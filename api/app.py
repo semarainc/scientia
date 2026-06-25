@@ -137,7 +137,7 @@ async def predict(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="File gambar tidak valid atau rusak.")
 
     if predictor is not None:
-        result = predict_real(imapge)
+        result = predict_real(image)
     else:
         result = predict_dummy(image)
 
